@@ -4,8 +4,6 @@
  * Configuración MySQL (XAMPP local o hosting).
  *
  * DB_NAME puede ser cualquier nombre al que tu usuario tenga acceso:
- * - Local:   cuentashogar
- * - Hosting: u821406503_mi_base  (el nombre exacto del panel)
  *
  * En hosting compartido crea la base en el panel y pon aquí ese nombre;
  * el instalador no necesita poder ejecutar CREATE DATABASE.
