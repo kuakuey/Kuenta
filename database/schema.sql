@@ -1,11 +1,10 @@
--- Importar este archivo en phpMyAdmin (pestaña Importar)
--- Crea la base de datos y tablas (usuarios se registran desde la app)
-
-CREATE DATABASE IF NOT EXISTS cuentashogar
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE cuentashogar;
+-- Esquema de tablas para Cuentas Hogar.
+-- El nombre de la base lo defines en config/db.php (DB_NAME).
+--
+-- Instalación recomendada: http://tu-dominio/importar.php
+--
+-- phpMyAdmin (hosting): selecciona primero tu base de datos en el panel
+-- y luego importa este archivo (solo crea tablas, no crea la base).
 
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,

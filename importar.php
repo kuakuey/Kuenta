@@ -54,7 +54,7 @@ $pageTitle = 'Importar base de datos';
         <section class="page-header">
             <div>
                 <h1>Importar base de datos</h1>
-                <p class="subtitle">Configura MySQL desde el navegador sin usar phpMyAdmin</p>
+                <p class="subtitle">Instala las tablas en la base configurada en <code>config/db.php</code></p>
             </div>
             <?php if ($status['ready']): ?>
                 <a href="index.php" class="btn btn-primary">Ir al inicio</a>
@@ -114,7 +114,11 @@ $pageTitle = 'Importar base de datos';
                 <form method="post" class="form-grid">
                     <input type="hidden" name="accion" value="importar">
                     <div class="form-group span-2">
-                        <p>Importa el esquema local <code>database/schema.sql</code> y crea la base de datos automáticamente.</p>
+                        <p>
+                            Instala las tablas en la base definida en <code>config/db.php</code>
+                            (<strong><?= h(DB_NAME) ?></strong>).
+                            Si el usuario puede crear bases (XAMPP), la crea; en hosting usa la base ya existente.
+                        </p>
                     </div>
                     <div class="form-actions span-2">
                         <button type="submit" class="btn btn-primary">Importar base de datos</button>
