@@ -1020,12 +1020,62 @@ body {
     }
 
     .calendar-day {
-        min-height: 80px;
-        padding: 0.3rem;
+        min-height: 64px;
+        padding: 0.25rem;
     }
 
+    .day-total,
+    .calendar-event .event-name,
     .calendar-event .event-amount {
         display: none;
+    }
+
+    .calendar-events {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.2rem;
+        align-items: center;
+    }
+
+    .calendar-event {
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        border-left: none;
+        font-size: 0;
+        line-height: 0;
+        overflow: hidden;
+    }
+
+    .calendar-event.event-unassigned {
+        background: #94a3b8;
+    }
+
+    .calendar-event.event-pending {
+        background: #f59e0b;
+    }
+
+    .calendar-event.event-overdue {
+        background: #dc2626;
+    }
+
+    .calendar-event.event-paid {
+        background: #16a34a;
+    }
+
+    .calendar-add-event {
+        width: 14px;
+        height: 14px;
+        padding: 0;
+        margin-top: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        line-height: 1;
+        border-style: solid;
     }
 
     .data-table .col-tipo {
