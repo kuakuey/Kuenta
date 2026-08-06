@@ -13,18 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'eliminar') {
         $id = (int) ($_POST['id'] ?? 0);
-        $usuarioId = getUsuarioId();
-        $db = getDB();
-        $db->beginTransaction();
         try {
-            $stmt = $db->prepare('DELETE FROM cuentas WHERE pago_fijo_id = ? AND usuario_id = ?');
-            $stmt->execute([$id, $usuarioId]);
-            $stmt = $db->prepare('DELETE FROM pagos_fijos WHERE id = ? AND usuario_id = ?');
-            $stmt->execute([$id, $usuarioId]);
-            $db->commit();
-            flash('success', 'Fecha de pago y todas sus fechas del calendario eliminadas.');
+            if (eliminarPagoFijo($id)) {
+                flash('success', 'Fecha de pago y todas sus fechas del calendario eliminadas.');
+            } else {
+                flash('error', 'No se encontró la fecha de pago.');
+            }
         } catch (Throwable $e) {
-            $db->rollBack();
             flash('error', 'No se pudo eliminar la fecha de pago.');
         }
     }

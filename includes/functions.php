@@ -117,6 +117,64 @@ function marcarCuentasPagadas(array $ids, ?string $fechaPago = null): int
     return $stmt->rowCount();
 }
 
+/**
+ * Elimina una fecha fija y todas las cuentas registradas en todos los meses.
+ */
+function eliminarPagoFijo(int $pagoFijoId): bool
+{
+    $usuarioId = getUsuarioId();
+    $db = getDB();
+
+    $stmt = $db->prepare('SELECT id FROM pagos_fijos WHERE id = ? AND usuario_id = ?');
+    $stmt->execute([$pagoFijoId, $usuarioId]);
+    if (!$stmt->fetch()) {
+        return false;
+    }
+
+    $db->beginTransaction();
+    try {
+        $stmt = $db->prepare('DELETE FROM cuentas WHERE pago_fijo_id = ? AND usuario_id = ?');
+        $stmt->execute([$pagoFijoId, $usuarioId]);
+        $stmt = $db->prepare('DELETE FROM pagos_fijos WHERE id = ? AND usuario_id = ?');
+        $stmt->execute([$pagoFijoId, $usuarioId]);
+        $db->commit();
+        return true;
+    } catch (Throwable $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+/**
+ * Elimina una cuenta del mes. Si pertenece a una fecha fija, elimina
+ * la plantilla y todas las cuentas registradas en todos los meses.
+ *
+ * @return string 'serie' | 'unica' | 'nada'
+ */
+function eliminarCuenta(int $id): string
+{
+    $usuarioId = getUsuarioId();
+    $db = getDB();
+
+    $stmt = $db->prepare('SELECT id, pago_fijo_id FROM cuentas WHERE id = ? AND usuario_id = ?');
+    $stmt->execute([$id, $usuarioId]);
+    $cuenta = $stmt->fetch();
+
+    if (!$cuenta) {
+        return 'nada';
+    }
+
+    $pagoFijoId = $cuenta['pago_fijo_id'] ? (int) $cuenta['pago_fijo_id'] : 0;
+
+    if ($pagoFijoId > 0) {
+        return eliminarPagoFijo($pagoFijoId) ? 'serie' : 'nada';
+    }
+
+    $stmt = $db->prepare('DELETE FROM cuentas WHERE id = ? AND usuario_id = ?');
+    $stmt->execute([$id, $usuarioId]);
+    return $stmt->rowCount() > 0 ? 'unica' : 'nada';
+}
+
 function getCuentasParaPagar(int $mes, int $anio): array
 {
     $stmt = getDB()->prepare("

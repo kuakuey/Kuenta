@@ -40,9 +40,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'eliminar') {
         $id = (int) ($_POST['id'] ?? 0);
-        $stmt = getDB()->prepare('DELETE FROM cuentas WHERE id = ? AND usuario_id = ?');
-        $stmt->execute([$id, getUsuarioId()]);
-        flash('success', 'Cuenta eliminada.');
+        try {
+            $resultado = eliminarCuenta($id);
+            if ($resultado === 'serie') {
+                flash('success', 'Fecha eliminada en todos los meses.');
+            } elseif ($resultado === 'unica') {
+                flash('success', 'Cuenta eliminada.');
+            } else {
+                flash('error', 'No se encontró la cuenta.');
+            }
+        } catch (Throwable $e) {
+            flash('error', 'No se pudo eliminar la cuenta.');
+        }
     }
 
     redirect(urlMes('cuentas.php', $mes, $anio, ['filtro' => $filtro]));
@@ -96,10 +105,9 @@ require __DIR__ . '/includes/header.php';
     <?php if (empty($cuentas)): ?>
         <p class="empty-state">No hay cuentas registradas para este mes.</p>
     <?php else: ?>
-        <form method="post" id="form-pagar">
-            <input type="hidden" name="action" value="pagar_seleccionadas">
-
-            <?php if ($hayPagables): ?>
+        <?php if ($hayPagables): ?>
+            <form method="post" id="form-pagar" class="pagar-bulk-form">
+                <input type="hidden" name="action" value="pagar_seleccionadas">
                 <div class="pagar-toolbar">
                     <label class="checkbox-label">
                         <input type="checkbox" id="select-all">
@@ -107,121 +115,115 @@ require __DIR__ . '/includes/header.php';
                     </label>
                     <strong id="total-seleccionado">Total: $0</strong>
                 </div>
-            <?php endif; ?>
-
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <?php if ($hayPagables): ?><th class="col-check"></th><?php endif; ?>
-                            <th>Cuenta</th>
-                            <th>Vencimiento</th>
-                            <th>Monto</th>
-                            <th class="col-tipo">Tipo de pago</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($cuentas as $cuenta):
-                            $esPagable = $cuenta['estado'] === 'pendiente'
-                                && !empty($cuenta['valor_asignado'])
-                                && (float) $cuenta['monto'] > 0;
-                            $visual = cuentaEstadoVisual($cuenta);
-                        ?>
-                            <tr class="<?= $cuenta['estado'] === 'pagado' ? 'row-paid' : ($visual === 'overdue' ? 'row-overdue' : '') ?>">
-                                <?php if ($hayPagables): ?>
-                                    <td class="col-check">
-                                        <?php if ($esPagable): ?>
-                                            <input type="checkbox" name="cuentas[]" value="<?= (int) $cuenta['id'] ?>" class="cuenta-check" data-monto="<?= (float) $cuenta['monto'] ?>">
-                                        <?php endif; ?>
-                                    </td>
-                                <?php endif; ?>
-                                <td>
-                                    <strong><?= h($cuenta['nombre']) ?></strong>
-                                    <?php if ($cuenta['pago_fijo_id']): ?>
-                                        <span class="badge badge-fixed">Fijo</span>
-                                    <?php endif; ?>
-                                    <?php if ($cuenta['notas']): ?>
-                                        <div class="text-muted small"><?= h($cuenta['notas']) ?></div>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= formatDate($cuenta['fecha_vencimiento']) ?></td>
-                                <td class="amount"><?= formatMoney((float) $cuenta['monto']) ?></td>
-                                <td class="col-tipo">
-                                    <?php if ($cuenta['tipo_pago_nombre']): ?>
-                                        <span class="badge" style="--badge-color: <?= h($cuenta['tipo_pago_color']) ?>">
-                                            <?= h($cuenta['tipo_pago_nombre']) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="text-muted">—</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if ($cuenta['estado'] === 'pagado'): ?>
-                                        <span class="status status-paid">Pagado<?= $cuenta['fecha_pago'] ? ' · ' . formatDate($cuenta['fecha_pago']) : '' ?></span>
-                                    <?php elseif ($visual === 'overdue'): ?>
-                                        <span class="status status-overdue">Vencida</span>
-                                    <?php else: ?>
-                                        <span class="status status-pending">Pendiente</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <div class="row-actions">
-                                        <a href="cuenta-form.php?id=<?= (int) $cuenta['id'] ?>&mes=<?= $mes ?>&anio=<?= $anio ?>" class="btn btn-sm btn-ghost">Editar</a>
-                                        <?php if ($cuenta['estado'] === 'pendiente'): ?>
-                                            <?php if ($esPagable): ?>
-                                                <button type="submit" class="btn btn-sm btn-success" form="form-pagar-una-<?= (int) $cuenta['id'] ?>">Pagar</button>
-                                            <?php else: ?>
-                                                <a href="asignar-valor.php?id=<?= (int) $cuenta['id'] ?>&mes=<?= $mes ?>&anio=<?= $anio ?>" class="btn btn-sm btn-ghost">Asignar valor</a>
-                                            <?php endif; ?>
-                                        <?php else: ?>
-                                            <button type="submit" class="btn btn-sm btn-ghost" form="form-desmarcar-<?= (int) $cuenta['id'] ?>">Desmarcar</button>
-                                        <?php endif; ?>
-                                        <button type="submit" class="btn btn-sm btn-danger" form="form-eliminar-<?= (int) $cuenta['id'] ?>" onclick="return confirm('¿Eliminar esta cuenta?')">Eliminar</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <?php if ($hayPagables): ?>
-                <div class="pagar-footer form-grid">
-                    <div class="form-group">
-                        <label for="fecha_pago">Fecha de pago</label>
-                        <input type="date" id="fecha_pago" name="fecha_pago" value="<?= date('Y-m-d') ?>">
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-lg">Registrar pagos seleccionados</button>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </form>
-
-        <?php foreach ($cuentas as $cuenta):
-            $esPagable = $cuenta['estado'] === 'pendiente'
-                && !empty($cuenta['valor_asignado'])
-                && (float) $cuenta['monto'] > 0;
-        ?>
-            <?php if ($cuenta['estado'] === 'pendiente' && $esPagable): ?>
-                <form method="post" id="form-pagar-una-<?= (int) $cuenta['id'] ?>" class="hidden-form">
-                    <input type="hidden" name="action" value="marcar_pagado">
-                    <input type="hidden" name="id" value="<?= (int) $cuenta['id'] ?>">
-                    <input type="hidden" name="fecha_pago" value="<?= date('Y-m-d') ?>">
-                </form>
-            <?php elseif ($cuenta['estado'] === 'pagado'): ?>
-                <form method="post" id="form-desmarcar-<?= (int) $cuenta['id'] ?>" class="hidden-form">
-                    <input type="hidden" name="action" value="marcar_pendiente">
-                    <input type="hidden" name="id" value="<?= (int) $cuenta['id'] ?>">
-                </form>
-            <?php endif; ?>
-            <form method="post" id="form-eliminar-<?= (int) $cuenta['id'] ?>" class="hidden-form">
-                <input type="hidden" name="action" value="eliminar">
-                <input type="hidden" name="id" value="<?= (int) $cuenta['id'] ?>">
             </form>
-        <?php endforeach; ?>
+        <?php endif; ?>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <?php if ($hayPagables): ?><th class="col-check"></th><?php endif; ?>
+                        <th>Cuenta</th>
+                        <th>Vencimiento</th>
+                        <th>Monto</th>
+                        <th class="col-tipo">Tipo de pago</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($cuentas as $cuenta):
+                        $esPagable = $cuenta['estado'] === 'pendiente'
+                            && !empty($cuenta['valor_asignado'])
+                            && (float) $cuenta['monto'] > 0;
+                        $visual = cuentaEstadoVisual($cuenta);
+                        $esFija = !empty($cuenta['pago_fijo_id']);
+                        $confirmEliminar = $esFija
+                            ? '¿Eliminar esta fecha en todos los meses?'
+                            : '¿Eliminar esta cuenta?';
+                    ?>
+                        <tr class="<?= $cuenta['estado'] === 'pagado' ? 'row-paid' : ($visual === 'overdue' ? 'row-overdue' : '') ?>">
+                            <?php if ($hayPagables): ?>
+                                <td class="col-check">
+                                    <?php if ($esPagable): ?>
+                                        <input type="checkbox" name="cuentas[]" value="<?= (int) $cuenta['id'] ?>" form="form-pagar" class="cuenta-check" data-monto="<?= (float) $cuenta['monto'] ?>">
+                                    <?php endif; ?>
+                                </td>
+                            <?php endif; ?>
+                            <td>
+                                <strong><?= h($cuenta['nombre']) ?></strong>
+                                <?php if ($esFija): ?>
+                                    <span class="badge badge-fixed">Fijo</span>
+                                <?php endif; ?>
+                                <?php if ($cuenta['notas']): ?>
+                                    <div class="text-muted small"><?= h($cuenta['notas']) ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= formatDate($cuenta['fecha_vencimiento']) ?></td>
+                            <td class="amount"><?= formatMoney((float) $cuenta['monto']) ?></td>
+                            <td class="col-tipo">
+                                <?php if ($cuenta['tipo_pago_nombre']): ?>
+                                    <span class="badge" style="--badge-color: <?= h($cuenta['tipo_pago_color']) ?>">
+                                        <?= h($cuenta['tipo_pago_nombre']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($cuenta['estado'] === 'pagado'): ?>
+                                    <span class="status status-paid">Pagado<?= $cuenta['fecha_pago'] ? ' · ' . formatDate($cuenta['fecha_pago']) : '' ?></span>
+                                <?php elseif ($visual === 'overdue'): ?>
+                                    <span class="status status-overdue">Vencida</span>
+                                <?php else: ?>
+                                    <span class="status status-pending">Pendiente</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div class="row-actions">
+                                    <a href="cuenta-form.php?id=<?= (int) $cuenta['id'] ?>&mes=<?= $mes ?>&anio=<?= $anio ?>" class="btn btn-sm btn-ghost">Editar</a>
+                                    <?php if ($cuenta['estado'] === 'pendiente'): ?>
+                                        <?php if ($esPagable): ?>
+                                            <form method="post" class="inline-form">
+                                                <input type="hidden" name="action" value="marcar_pagado">
+                                                <input type="hidden" name="id" value="<?= (int) $cuenta['id'] ?>">
+                                                <input type="hidden" name="fecha_pago" value="<?= date('Y-m-d') ?>">
+                                                <button type="submit" class="btn btn-sm btn-success">Pagar</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <a href="asignar-valor.php?id=<?= (int) $cuenta['id'] ?>&mes=<?= $mes ?>&anio=<?= $anio ?>" class="btn btn-sm btn-ghost">Asignar valor</a>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <form method="post" class="inline-form">
+                                            <input type="hidden" name="action" value="marcar_pendiente">
+                                            <input type="hidden" name="id" value="<?= (int) $cuenta['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-ghost">Desmarcar</button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <form method="post" class="inline-form" onsubmit="return confirm('<?= h($confirmEliminar) ?>')">
+                                        <input type="hidden" name="action" value="eliminar">
+                                        <input type="hidden" name="id" value="<?= (int) $cuenta['id'] ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <?php if ($hayPagables): ?>
+            <div class="pagar-footer form-grid">
+                <div class="form-group">
+                    <label for="fecha_pago">Fecha de pago</label>
+                    <input type="date" id="fecha_pago" name="fecha_pago" form="form-pagar" value="<?= date('Y-m-d') ?>">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" form="form-pagar" class="btn btn-primary btn-lg">Registrar pagos seleccionados</button>
+                </div>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
 
