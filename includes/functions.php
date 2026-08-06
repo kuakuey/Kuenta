@@ -148,6 +148,8 @@ function eliminarPagoFijo(int $pagoFijoId): bool
 /**
  * Elimina una cuenta del mes. Si pertenece a una fecha fija, elimina
  * la plantilla y todas las cuentas registradas en todos los meses.
+ * Si es huérfana (sin fecha fija) pero hay más con el mismo nombre/día,
+ * elimina toda esa serie residual.
  *
  * @return string 'serie' | 'unica' | 'nada'
  */
@@ -156,7 +158,7 @@ function eliminarCuenta(int $id): string
     $usuarioId = getUsuarioId();
     $db = getDB();
 
-    $stmt = $db->prepare('SELECT id, pago_fijo_id FROM cuentas WHERE id = ? AND usuario_id = ?');
+    $stmt = $db->prepare('SELECT id, nombre, pago_fijo_id, fecha_vencimiento FROM cuentas WHERE id = ? AND usuario_id = ?');
     $stmt->execute([$id, $usuarioId]);
     $cuenta = $stmt->fetch();
 
@@ -170,9 +172,81 @@ function eliminarCuenta(int $id): string
         return eliminarPagoFijo($pagoFijoId) ? 'serie' : 'nada';
     }
 
-    $stmt = $db->prepare('DELETE FROM cuentas WHERE id = ? AND usuario_id = ?');
-    $stmt->execute([$id, $usuarioId]);
-    return $stmt->rowCount() > 0 ? 'unica' : 'nada';
+    $dia = (int) date('j', strtotime($cuenta['fecha_vencimiento']));
+    $borradas = eliminarSerieHuerfana($cuenta['nombre'], $dia);
+
+    if ($borradas > 1) {
+        return 'serie';
+    }
+
+    if ($borradas === 1) {
+        return 'unica';
+    }
+
+    return 'nada';
+}
+
+/**
+ * Series sueltas: cuentas sin fecha fija (o con enlace roto) que se
+ * repiten en varios meses — quedaron al borrar solo el mes actual.
+ */
+function getSeriesHuerfanas(): array
+{
+    $stmt = getDB()->prepare("
+        SELECT
+            c.nombre,
+            DAY(c.fecha_vencimiento) AS dia,
+            COUNT(*) AS total,
+            MIN(c.anio * 100 + c.mes) AS periodo_desde,
+            MAX(c.anio * 100 + c.mes) AS periodo_hasta
+        FROM cuentas c
+        LEFT JOIN pagos_fijos p ON p.id = c.pago_fijo_id
+        WHERE c.usuario_id = ?
+          AND p.id IS NULL
+        GROUP BY c.nombre, DAY(c.fecha_vencimiento)
+        HAVING COUNT(*) >= 2
+        ORDER BY c.nombre ASC, dia ASC
+    ");
+    $stmt->execute([getUsuarioId()]);
+    $rows = $stmt->fetchAll();
+
+    foreach ($rows as &$row) {
+        $desde = (int) $row['periodo_desde'];
+        $hasta = (int) $row['periodo_hasta'];
+        $row['desde_mes'] = $desde % 100;
+        $row['desde_anio'] = intdiv($desde, 100);
+        $row['hasta_mes'] = $hasta % 100;
+        $row['hasta_anio'] = intdiv($hasta, 100);
+    }
+    unset($row);
+
+    return $rows;
+}
+
+function eliminarSerieHuerfana(string $nombre, int $dia): int
+{
+    $stmt = getDB()->prepare("
+        DELETE c FROM cuentas c
+        LEFT JOIN pagos_fijos p ON p.id = c.pago_fijo_id
+        WHERE c.usuario_id = ?
+          AND p.id IS NULL
+          AND c.nombre = ?
+          AND DAY(c.fecha_vencimiento) = ?
+    ");
+    $stmt->execute([getUsuarioId(), $nombre, $dia]);
+    return $stmt->rowCount();
+}
+
+function eliminarTodasSeriesHuerfanas(): int
+{
+    $series = getSeriesHuerfanas();
+    $total = 0;
+
+    foreach ($series as $serie) {
+        $total += eliminarSerieHuerfana($serie['nombre'], (int) $serie['dia']);
+    }
+
+    return $total;
 }
 
 function getCuentasParaPagar(int $mes, int $anio): array

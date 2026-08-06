@@ -140,7 +140,7 @@ require __DIR__ . '/includes/header.php';
                         $esFija = !empty($cuenta['pago_fijo_id']);
                         $confirmEliminar = $esFija
                             ? '¿Eliminar esta fecha en todos los meses?'
-                            : '¿Eliminar esta cuenta?';
+                            : '¿Eliminar esta cuenta? Si hay más meses con el mismo nombre, también se borrarán.';
                     ?>
                         <tr class="<?= $cuenta['estado'] === 'pagado' ? 'row-paid' : ($visual === 'overdue' ? 'row-overdue' : '') ?>">
                             <?php if ($hayPagables): ?>

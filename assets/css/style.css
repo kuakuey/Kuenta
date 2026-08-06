@@ -203,6 +203,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
     margin-bottom: 1rem;
 }
 
@@ -210,6 +211,15 @@ body {
 .card h2 {
     margin: 0 0 1rem;
     font-size: 1.1rem;
+}
+
+.card-header h2 {
+    margin-bottom: 0;
+}
+
+.card-warning {
+    border-color: #f1c40f;
+    background: #fffbeb;
 }
 
 .card-form h2 {

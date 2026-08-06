@@ -24,6 +24,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($action === 'limpiar_huerfana') {
+        $nombre = trim($_POST['nombre'] ?? '');
+        $dia = (int) ($_POST['dia'] ?? 0);
+        if ($nombre !== '' && $dia > 0) {
+            $borradas = eliminarSerieHuerfana($nombre, $dia);
+            flash('success', $borradas > 0
+                ? "Se eliminaron {$borradas} fecha(s) sueltas de «{$nombre}»."
+                : 'No había fechas sueltas para eliminar.');
+        } else {
+            flash('error', 'Datos incompletos para limpiar.');
+        }
+    }
+
+    if ($action === 'limpiar_todas_huerfanas') {
+        $borradas = eliminarTodasSeriesHuerfanas();
+        flash('success', $borradas > 0
+            ? "Se eliminaron {$borradas} fecha(s) sueltas del calendario."
+            : 'No se encontraron fechas sueltas.');
+    }
+
     if ($action === 'generar_mes') {
         [$mes, $anio] = parseMesAnio(
             isset($_POST['mes']) ? (int) $_POST['mes'] : null,
@@ -40,6 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pagos = getPagosFijos(false);
+$seriesHuerfanas = getSeriesHuerfanas();
+$totalHuerfanas = array_sum(array_column($seriesHuerfanas, 'total'));
 $mes = (int) date('n');
 $anio = (int) date('Y');
 
@@ -69,6 +91,56 @@ require __DIR__ . '/includes/header.php';
         </ol>
     </div>
 </section>
+
+<?php if (!empty($seriesHuerfanas)): ?>
+<section class="card card-warning">
+    <div class="card-header">
+        <h2>Fechas sueltas detectadas</h2>
+        <form method="post" class="inline-form" onsubmit="return confirm('¿Eliminar todas las fechas sueltas del calendario (<?= (int) $totalHuerfanas ?>)?')">
+            <input type="hidden" name="action" value="limpiar_todas_huerfanas">
+            <button type="submit" class="btn btn-sm btn-danger">Limpiar todas (<?= (int) $totalHuerfanas ?>)</button>
+        </form>
+    </div>
+    <p class="text-muted">
+        Parece que se borró solo un mes y quedaron registros en otros. Aquí puedes eliminar el resto de una vez.
+    </p>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Día</th>
+                    <th>Cuenta</th>
+                    <th>Registros</th>
+                    <th>Rango</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($seriesHuerfanas as $serie): ?>
+                    <tr>
+                        <td><strong>Día <?= (int) $serie['dia'] ?></strong></td>
+                        <td><strong><?= h($serie['nombre']) ?></strong></td>
+                        <td><?= (int) $serie['total'] ?> meses</td>
+                        <td class="text-muted">
+                            <?= h(monthName((int) $serie['desde_mes'])) ?> <?= (int) $serie['desde_anio'] ?>
+                            —
+                            <?= h(monthName((int) $serie['hasta_mes'])) ?> <?= (int) $serie['hasta_anio'] ?>
+                        </td>
+                        <td>
+                            <form method="post" class="inline-form" onsubmit="return confirm('¿Eliminar las <?= (int) $serie['total'] ?> fechas sueltas de «<?= h($serie['nombre']) ?>»?')">
+                                <input type="hidden" name="action" value="limpiar_huerfana">
+                                <input type="hidden" name="nombre" value="<?= h($serie['nombre']) ?>">
+                                <input type="hidden" name="dia" value="<?= (int) $serie['dia'] ?>">
+                                <button type="submit" class="btn btn-sm btn-danger">Eliminar serie</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+<?php endif; ?>
 
 <section class="card">
     <?php if (empty($pagos)): ?>
