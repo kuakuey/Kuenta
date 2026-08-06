@@ -13,9 +13,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'eliminar') {
         $id = (int) ($_POST['id'] ?? 0);
-        $stmt = getDB()->prepare('DELETE FROM pagos_fijos WHERE id = ? AND usuario_id = ?');
-        $stmt->execute([$id, getUsuarioId()]);
-        flash('success', 'Fecha de pago eliminada.');
+        $usuarioId = getUsuarioId();
+        $db = getDB();
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare('DELETE FROM cuentas WHERE pago_fijo_id = ? AND usuario_id = ?');
+            $stmt->execute([$id, $usuarioId]);
+            $stmt = $db->prepare('DELETE FROM pagos_fijos WHERE id = ? AND usuario_id = ?');
+            $stmt->execute([$id, $usuarioId]);
+            $db->commit();
+            flash('success', 'Fecha de pago y todas sus fechas del calendario eliminadas.');
+        } catch (Throwable $e) {
+            $db->rollBack();
+            flash('error', 'No se pudo eliminar la fecha de pago.');
+        }
     }
 
     if ($action === 'generar_mes') {
@@ -58,7 +69,7 @@ require __DIR__ . '/includes/header.php';
         <ol class="flow-steps">
             <li>Registras aquí las <strong>fechas fijas</strong> (día de corte).</li>
             <li>En el <strong>calendario</strong>, mes a mes, asignas el valor cuando toca.</li>
-            <li>En <strong>Pagar</strong>, seleccionas qué cuentas vas a pagar.</li>
+            <li>En la <strong>Lista</strong>, seleccionas qué cuentas vas a pagar.</li>
             <li>En el calendario pasan a <span class="color-hint green">verde</span> (o <span class="color-hint red">rojo</span> si se vencieron).</li>
         </ol>
     </div>
@@ -112,7 +123,7 @@ require __DIR__ . '/includes/header.php';
                                             <?= $pago['activo'] ? 'Desactivar' : 'Activar' ?>
                                         </button>
                                     </form>
-                                    <form method="post" class="inline-form" onsubmit="return confirm('¿Eliminar esta fecha de pago?')">
+                                    <form method="post" class="inline-form" onsubmit="return confirm('¿Eliminar esta fecha de pago y todas sus fechas del calendario?')">
                                         <input type="hidden" name="action" value="eliminar">
                                         <input type="hidden" name="id" value="<?= (int) $pago['id'] ?>">
                                         <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>

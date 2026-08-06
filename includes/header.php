@@ -24,9 +24,8 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             </a>
             <nav class="main-nav">
                 <a href="calendario.php" class="<?= in_array($currentPage, ['index', 'calendario', 'asignar-valor'], true) ? 'active' : '' ?>">Calendario</a>
-                <a href="pagar.php" class="<?= $currentPage === 'pagar' ? 'active' : '' ?>">Pagar</a>
                 <a href="pagos-fijos.php" class="<?= in_array($currentPage, ['pagos-fijos', 'pago-fijo-form'], true) ? 'active' : '' ?>">Fechas</a>
-                <a href="cuentas.php" class="<?= in_array($currentPage, ['cuentas', 'cuenta-form'], true) ? 'active' : '' ?>">Lista</a>
+                <a href="cuentas.php" class="<?= in_array($currentPage, ['cuentas', 'cuenta-form', 'pagar'], true) ? 'active' : '' ?>">Lista</a>
                 <a href="tipos-pago.php" class="<?= $currentPage === 'tipos-pago' ? 'active' : '' ?>">Tipos de pago</a>
             </nav>
             <?php $usuario = getUsuarioActual(); if ($usuario): ?>

@@ -103,7 +103,7 @@ require __DIR__ . '/includes/header.php';
             <div class="card-header">
                 <h2>Por pagar</h2>
                 <?php if (!empty($paraPagar)): ?>
-                    <a href="<?= urlMes('pagar.php', $mes, $anio) ?>" class="link">Pagar</a>
+                    <a href="<?= urlMes('cuentas.php', $mes, $anio, ['filtro' => 'pendientes']) ?>" class="link">Ver lista</a>
                 <?php endif; ?>
             </div>
             <?php if (empty($paraPagar)): ?>
@@ -124,7 +124,7 @@ require __DIR__ . '/includes/header.php';
                         </li>
                     <?php endforeach; ?>
                 </ul>
-                <a href="<?= urlMes('pagar.php', $mes, $anio) ?>" class="btn btn-primary btn-block">Ir a pagar</a>
+                <a href="<?= urlMes('cuentas.php', $mes, $anio, ['filtro' => 'pendientes']) ?>" class="btn btn-primary btn-block">Ir a la lista</a>
             <?php endif; ?>
         </section>
     </aside>
