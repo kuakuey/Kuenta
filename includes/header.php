@@ -19,8 +19,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <header class="site-header">
         <div class="container header-inner">
             <a href="calendario.php" class="logo">
-                <span class="logo-icon">🏠</span>
-                <span>Cuentas Hogar</span>
+                <span>Kuenta</span>
             </a>
             <nav class="main-nav">
                 <a href="calendario.php" class="<?= in_array($currentPage, ['index', 'calendario', 'asignar-valor'], true) ? 'active' : '' ?>">Calendario</a>
